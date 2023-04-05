@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 void handle_file(int fd, struct stat INFO){ //file descriptor and stat info
 
@@ -33,7 +35,7 @@ void handle_link(int fd, struct stat INFO){//file descriptor and stat info
 
     for(int i=0; /*commands[i]!=NULL && */commands[i]!='\0';i++){
         switch (commands[i]) {
-            case "n":
+            case 'n':
             case "l":
             case "d":
             case "t":
