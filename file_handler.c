@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -46,9 +47,9 @@ void print_access(struct stat INFO){
 
 void create_symlink(char* path, struct stat INFO){
 
-    char* link_path;
+    char link_path[100];
     printf("\nSpecify link path/name:\n");
-    scanf("%s", link_path);
+    scanf("%99s", link_path);
     symlink(path, link_path);
 }
 
@@ -63,13 +64,22 @@ void print_link_size(char* link){
     printf("Link size (int bytes): %ld", l_INFO.st_size);
 }
 
+int count_c_files(char* dir){
+    printf("Work in progress\n");
+    return 0;
+}
+void print_dir_size(char* dir){
+    printf("Work in progress\n");
+}
+
 void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
 
+    printf("REGULAR FILE\n");
     printf("----MENU----\n->n: name\n->d: size\n->h: hard link count\n->m: last modification\n->a: acces rights\n->l: create symbolic link \n");
     printf("\nPlease enter your options\n");
 
     char commands[7]; commands[6]='\0'; //commands scanning
-    scanf("-%6s", &commands);
+    scanf("-%6s", commands);
 
     for(int i=0; commands[i]!='\0'; i++){
         switch (commands[i]) {
@@ -86,11 +96,14 @@ void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
 
 void handle_link(char* symlink, struct stat INFO){//file descriptor and stat info
 
+    printf("HARDLINK\n");
     printf("----MENU----\n->n: name\n->l: delete\n->d: size of sl\n->t: size of target file\n->a: access rights\n");
     printf("\nPlease enter your options\n");
 
     char commands[6]; commands[5]='\0';
-    scanf("-%5s", &commands);
+    scanf("-%5s", commands);
+
+    bool exit_flag=false;
 
     for(int i=0; commands[i]!='\0'; i++){
         switch (commands[i]) {
@@ -98,18 +111,36 @@ void handle_link(char* symlink, struct stat INFO){//file descriptor and stat inf
             case 'l':{
                 printf("deleting link\n");
                 unlink(symlink);
+                exit_flag=true;
                 break;
                 }
             case 'd':{print_link_size(symlink);break;}
             case 't':{printf("Size of target: %ld", INFO.st_size);break;}
             case 'a':{print_access(INFO);break;}
-            default: {printf("Please input accepted commands: n,d,h,m,a,l.\n");break;}
+            default: {printf("Please input accepted commands: n,l,d,t,a.\n");break;}
         }
+        if(exit_flag) break;
     }
 } 
 
 void handle_dir(char* dir, struct stat INFO){
     
+    printf("DIRECTORY\n");
+    printf("----MENU----\n->n: name\n->d: size\n->a: access rights\n->c: Number of files with .c extension\n");
+    printf("\nPlease enter your options\n");
+
+    char commands[5]; commands[6]='\0';
+    scanf("-%4s", commands);
+
+    for(int i=0; commands[i]!='\0'; i++){
+        switch (commands[i]) {
+            case 'n':{printf("Name of direcory: %s\n", dir);break;}
+            case 'd':{print_dir_size(dir);break;}
+            case 'a':{print_access(INFO);break;}
+            case 'c':{printf("Files with .c extension: %d",count_c_files(dir));break;}
+            default: {printf("Please input accepted commands: n,d,a,c.\n");break;}
+        }
+    }
 }
 
 
