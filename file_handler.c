@@ -47,9 +47,8 @@ void print_access(struct stat INFO){
 void create_symlink(char* path, struct stat INFO){
 
     char* link_path;
-    printf("Specify link path/name:\n");
+    printf("\nSpecify link path/name:\n");
     scanf("%s", link_path);
-
     symlink(path, link_path);
 }
 
@@ -60,7 +59,7 @@ void print_time_last_modif(struct stat INFO){
 
 void print_link_size(char* link){
     struct stat l_INFO;
-    lstat(link, l_INFO);
+    lstat(link, &l_INFO);
     printf("Link size (int bytes): %ld", l_INFO.st_size);
 }
 
@@ -123,7 +122,7 @@ int main(int argc, char* argv[]){
 
     struct stat INFO;
     stat(argv[1], &INFO);
-
+    
     if(S_ISREG(INFO.st_mode)) handle_file(argv[1], INFO);
     else if(S_ISLNK(INFO.st_mode))handle_link(argv[1], INFO);
     else if(S_ISDIR(INFO.st_mode))handle_dir(argv[1], INFO);
