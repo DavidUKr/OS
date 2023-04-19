@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <dirent.h>
 
 void print_access(struct stat INFO){
     
@@ -69,7 +70,23 @@ int count_c_files(char* dir){
     return 0;
 }
 void print_dir_size(char* dir){
-    printf("Work in progress\n");
+    //handling opening directory
+    DIR *directory=opendir(dir);
+    //handle entries
+    struct direntry *entry;
+    long size=0;
+
+    while(entry=readdir(directory)){
+        
+        struct stat info;
+        stat(entry, info);
+
+        if(S_ISDIR(info)) print_dir_size(entry);
+        else size+=info.st_size;
+    }
+
+    printf("Dir size: %ld", size);
+
 }
 
 void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
@@ -85,7 +102,7 @@ void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
         switch (commands[i]) {
             case 'n':{printf("Name of file: %s\n", file);break;}
             case 'd':{printf("Total size of file(in bytes): %ld\n", INFO.st_size);break;}
-            case 'h':{printf("Number of hard links: %d\n", INFO.st_nlink);break;}
+            case 'h':{printf("Number of hard links: %ld\n", INFO.st_nlink);break;}
             case 'm':{print_time_last_modif(INFO);break;}
             case 'a':{print_access(INFO);break;}
             case 'l':{create_symlink(file, INFO);break;}
