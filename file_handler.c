@@ -69,6 +69,7 @@ int count_c_files(char* dir){
     printf("Work in progress\n");
     return 0;
 }
+
 void print_dir_size(char* dir){
     //handling opening directory
     DIR *directory=opendir(dir);
@@ -79,9 +80,9 @@ void print_dir_size(char* dir){
     while(entry=readdir(directory)){
         
         struct stat info;
-        stat(entry, info);
+        stat(entry, &info);
 
-        if(S_ISDIR(info)) print_dir_size(entry);
+        if(S_ISDIR(info.st_mode)) print_dir_size(entry);
         else size+=info.st_size;
     }
 
