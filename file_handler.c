@@ -66,8 +66,17 @@ void print_link_size(char* link){
 }
 
 int count_c_files(char* dir){
-    printf("Work in progress\n");
-    return 0;
+    int counter=0;
+
+    DIR *directory=opendir(dir);
+    struct dirent *entry;
+
+    while(entry=readdir(directory)){
+        int len=strlen(entry->d_name);
+        if(entry->d_name[len-1]=='c' && entry->d_name[len-2]=='.') counter++;
+    }
+    
+    return counter;
 }
 
 void print_dir_size(char* dir){
@@ -86,7 +95,7 @@ void print_dir_size(char* dir){
         else size+=info.st_size;
     }
 
-    printf("Dir size: %ld", size);
+    printf("Dir size: %ld bits = %ld MB\n", size, size/8/1024/1024);
 
 }
 
@@ -110,6 +119,7 @@ void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
             default: {printf("Please input accepted commands: n,d,h,m,a,l.\n");break;}
         }       
     }
+
 }
 
 void handle_link(char* symlink, struct stat INFO){//file descriptor and stat info
@@ -155,10 +165,13 @@ void handle_dir(char* dir, struct stat INFO){
             case 'n':{printf("Name of direcory: %s\n", dir);break;}
             case 'd':{print_dir_size(dir);break;}
             case 'a':{print_access(INFO);break;}
-            case 'c':{printf("Files with .c extension: %d",count_c_files(dir));break;}
+            case 'c':{printf("Files with .c extension: %d\n",count_c_files(dir));break;}
             default: {printf("Please input accepted commands: n,d,a,c.\n");break;}
         }
     }
+
+    printf("Handling c files:\n");
+
 }
 
 
@@ -175,7 +188,7 @@ int main(int argc, char* argv[]){
     if(S_ISREG(INFO.st_mode)) handle_file(argv[1], INFO);
     else if(S_ISLNK(INFO.st_mode))handle_link(argv[1], INFO);
     else if(S_ISDIR(INFO.st_mode))handle_dir(argv[1], INFO);
-    else printf("Please input regular file or symbolic link");
+    //else printf("Please input regular file or symbolic link\n");
 
     return 0;
 }
