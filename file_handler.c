@@ -154,12 +154,12 @@ void calculate_score(FILE* stream, char* file_name){
     else score=0; 
 
     FILE* grades;
-    if((grades=fopen("output/grades.txt", "w"))<0){
+    if((grades=fopen("output/grades.txt", "a"))<0){
         perror("Could not open grades.txt file");
         exit(3);
     }
     else {
-        fprintf(grades, "%s:%f", file_name, score);
+        fprintf(grades, "%s:%f\n", file_name, score); //for windows \r\n
         fclose(grades);
     }
 }
