@@ -301,7 +301,9 @@ int main(int argc, char* argv[]){
             stat(input, &INFO);
             if(S_ISREG(INFO.st_mode)){
                 if(check_c_extenssion(input)) {count_we(input);}
-                else print_line_num(input);
+                else {
+                    print_line_num(input);
+                }
             }
             else if(S_ISLNK(INFO.st_mode)){
                 change_rights(input);
