@@ -9,6 +9,12 @@
 #include <unistd.h>
 #include <dirent.h>
 
+bool check_c_extenssion(char* name){
+    int len=strlen(name);
+    if(name[len-1]=='c' && name[len-2]=='.') return true;
+    else return false;
+}
+
 void print_access(struct stat INFO){
     
     printf("Access rights:\n    User:\n");
@@ -71,9 +77,8 @@ int count_c_files(char* dir){
     DIR *directory=opendir(dir);
     struct dirent *entry;
 
-    while(entry=readdir(directory)){
-        int len=strlen(entry->d_name);
-        if(entry->d_name[len-1]=='c' && entry->d_name[len-2]=='.') counter++;
+    while((entry=readdir(directory))){
+        if(check_c_extenssion(entry->d_name)) counter++;
     }
     
     return counter;
@@ -83,15 +88,15 @@ void print_dir_size(char* dir){
     //handling opening directory
     DIR *directory=opendir(dir);
     //handle entries
-    struct direntry *entry;
+    struct dirent *entry;
     long size=0;
 
-    while(entry=readdir(directory)){
+    while((entry=readdir(directory))){
         
         struct stat info;
         stat(entry, &info);
 
-        if(S_ISDIR(info.st_mode)) print_dir_size(entry);
+        if(S_ISDIR(info.st_mode)) print_dir_size(entry->d_name);
         else size+=info.st_size;
     }
 
@@ -107,19 +112,54 @@ void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
 
     char commands[7]; commands[6]='\0'; //commands scanning
     scanf("-%6s", commands);
+    int pid[6];
 
     for(int i=0; commands[i]!='\0'; i++){
-        switch (commands[i]) {
-            case 'n':{printf("Name of file: %s\n", file);break;}
-            case 'd':{printf("Total size of file(in bytes): %ld\n", INFO.st_size);break;}
-            case 'h':{printf("Number of hard links: %ld\n", INFO.st_nlink);break;}
-            case 'm':{print_time_last_modif(INFO);break;}
-            case 'a':{print_access(INFO);break;}
-            case 'l':{create_symlink(file, INFO);break;}
-            default: {printf("Please input accepted commands: n,d,h,m,a,l.\n");break;}
-        }       
+        if((pid[i]=fork())<0){
+            printf("could not create child process");
+            exit(2);
+        }
+        
+        if(pid[i]==0){
+            printf("process id: %d; ", getpid());
+            printf("parent id: %d\n", getppid()); 
+            switch (commands[i]) {
+                case 'n':{printf("Name of file: %s\n", file);break;}
+                case 'd':{printf("Total size of file(in bytes): %ld\n", INFO.st_size);break;}
+                case 'h':{printf("Number of hard links: %d\n", INFO.st_nlink);break;}
+                case 'm':{print_time_last_modif(INFO);break;}
+                case 'a':{print_access(INFO);break;}
+                case 'l':{create_symlink(file, INFO);break;}
+                default: {printf("Please input accepted commands: n,d,h,m,a,l.\n");break;}
+            }
+            exit(0);
+        }
+        
     }
 
+    int p2id;
+    if((p2id=fork())<0){
+        printf("Could not start second child process\n");
+    }
+    if(p2id==0){
+        if(check_c_extenssion(file)){
+            printf("W/E:\n");
+            execlp("c_comp.sh", file, (char*)NULL);
+            printf("\n");
+        }
+        else {
+            printf("Number of newlines in file:");    
+            execlp("wc","wc", "-l", file, (char*)NULL);
+            printf("\n");
+        }
+        exit(0);
+    }
+
+    for(int j=0; pid[j]!=NULL; j++){
+        printf("The process with PID <%d>, index <%d>, has ended with the exit code <%d>\n", pid[j], j, waitpid(pid[j]));
+    }
+
+    printf("The process with PID <%d>, has ended with the exit code <%d>\n", p2id, waitpid(p2id));
 }
 
 void handle_link(char* symlink, struct stat INFO){//file descriptor and stat info
@@ -134,20 +174,32 @@ void handle_link(char* symlink, struct stat INFO){//file descriptor and stat inf
     bool exit_flag=false;
 
     for(int i=0; commands[i]!='\0'; i++){
-        switch (commands[i]) {
-            case 'n':{printf("Name of link: %s\n", symlink);break;}
-            case 'l':{
-                printf("deleting link\n");
-                unlink(symlink);
-                exit_flag=true;
-                break;
-                }
-            case 'd':{print_link_size(symlink);break;}
-            case 't':{printf("Size of target: %ld", INFO.st_size);break;}
-            case 'a':{print_access(INFO);break;}
-            default: {printf("Please input accepted commands: n,l,d,t,a.\n");break;}
+        int pid;
+        if((pid=fork())<0){
+            printf("could not create child process");
+            exit(2);
         }
-        if(exit_flag) break;
+        if(pid==0){
+            switch (commands[i]) {
+                case 'n':{printf("Name of link: %s\n", symlink);break;}
+                case 'l':{
+                    printf("deleting link\n");
+                    unlink(symlink);
+                    exit_flag=true;
+                    break;
+                    }
+                case 'd':{print_link_size(symlink);break;}
+                case 't':{printf("Size of target: %ld", INFO.st_size);break;}
+                case 'a':{print_access(INFO);break;}
+                default: {printf("Please input accepted commands: n,l,d,t,a.\n");break;}
+            }
+            if(exit_flag) break;
+            exit(0);
+        }
+    }
+
+    for(int j=0; commands[j]!='\0'; j++){
+        wait();
     }
 } 
 
@@ -161,16 +213,28 @@ void handle_dir(char* dir, struct stat INFO){
     scanf("-%4s", commands);
 
     for(int i=0; commands[i]!='\0'; i++){
-        switch (commands[i]) {
-            case 'n':{printf("Name of direcory: %s\n", dir);break;}
-            case 'd':{print_dir_size(dir);break;}
-            case 'a':{print_access(INFO);break;}
-            case 'c':{printf("Files with .c extension: %d\n",count_c_files(dir));break;}
-            default: {printf("Please input accepted commands: n,d,a,c.\n");break;}
+        int pid;
+        if((pid=fork())<0){
+            printf("could not create child process");
+            exit(2);
+        }
+        if(pid==0){
+            switch (commands[i]) {
+                case 'n':{printf("Name of direcory: %s\n", dir);break;}
+                case 'd':{
+                    print_dir_size(dir);break;
+                    }
+                case 'a':{print_access(INFO);break;}
+                case 'c':{printf("Files with .c extension: %d\n",count_c_files(dir));break;}
+                default: {printf("Please input accepted commands: n,d,a,c.\n");break;}
+            }
+            exit(0);
         }
     }
 
-    printf("Handling c files:\n");
+    for(int j=0; commands[j]!='\0'; j++){
+        wait();
+    }
 
 }
 
