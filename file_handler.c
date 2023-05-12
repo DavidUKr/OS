@@ -49,7 +49,6 @@ void print_access(struct stat INFO){
     printf("Exec-");
     if((INFO.st_mode & S_IXOTH)>0) printf("Yes\n");
     else printf("No\n");
-    
 }
 
 void create_symlink(char* path, struct stat INFO){
@@ -104,6 +103,73 @@ void print_dir_size(char* dir){
 
 }
 
+void count_we(char* input){
+    printf("W/E:\n");
+    execlp("./c_comp.sh", input, (char*)NULL);
+    printf("\n");
+}
+
+void print_line_num(char* input){
+    printf("Number of newlines in file:\n");    
+    execlp("wc","wc", "-l", input, (char*)NULL);
+    printf("\n");
+}
+
+void change_rights(char* input){
+    execlp("chmod", "chmod", "=770", input, (char*)NULL);
+    printf("changed file access rights =770\n");
+}
+
+void makefile(char* dir){
+    char* name="_file.txt";
+    strcat(dir,name);
+    char* path="output/";
+    strcat(path, dir);
+    execlp("touch", "touch", path,(char*)NULL);
+    printf("created file: %s\n", dir);
+}
+
+void manageChildStdioPipes(int* pfd_toParent){
+    close(pfd_toParent[0]); //reading end of toParent
+    dup2(pfd_toParent[1], 1); //redirect standard output to writing end of toParent
+}
+
+FILE* manageParentStdioPipes(int* pfd_toParent){
+    close(pfd_toParent[1]); //writing end of toParent
+    //we leave stdin of parent as normal
+
+    return fdopen(pfd_toParent[0],"r"); //returning pipe reading end as stream
+}
+
+void calculate_score(FILE* stream, char* file_name){
+    int err_count, warn_count;
+    double score;
+    fscanf(stream,"%d %d",&err_count, &warn_count);
+    
+    if(err_count==0){
+        if(warn_count==0) score=10;
+        else if(warn_count>10) score=2;
+        else score=2+8*(10-warn_count)/10;
+    }
+    else score=0; 
+
+    FILE* grades;
+    if((grades=fopen("output/grades.txt", "w"))<0){
+        perror("Could not open grades.txt file");
+        exit(3);
+    }
+    else {
+        fprintf(grades, "%s:%f", file_name, score);
+        fclose(grades);
+    }
+}
+
+void print_stream_to_stdout(FILE* stream){
+    char string[100];
+    fscanf(stream, "%s", string);
+    printf("%s\n", string);
+}
+
 void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
 
     printf("REGULAR FILE\n");
@@ -112,54 +178,19 @@ void handle_file(char* file, struct stat INFO){ //file descriptor and stat info
 
     char commands[7]; commands[6]='\0'; //commands scanning
     scanf("-%6s", commands);
-    int pid[6];
 
     for(int i=0; commands[i]!='\0'; i++){
-        if((pid[i]=fork())<0){
-            printf("could not create child process");
-            exit(2);
+        switch (commands[i]) {
+            case 'n':{printf("Name of file: %s\n", file);break;}
+            case 'd':{printf("Total size of file(in bytes): %ld\n", INFO.st_size);break;}
+            case 'h':{printf("Number of hard links: %d\n", INFO.st_nlink);break;}
+            case 'm':{print_time_last_modif(INFO);break;}
+            case 'a':{print_access(INFO);break;}
+            case 'l':{create_symlink(file, INFO);break;}
+            default: {printf("Please input accepted commands: n,d,h,m,a,l.\n");break;}
         }
-        
-        if(pid[i]==0){
-            printf("process id: %d; ", getpid());
-            printf("parent id: %d\n", getppid()); 
-            switch (commands[i]) {
-                case 'n':{printf("Name of file: %s\n", file);break;}
-                case 'd':{printf("Total size of file(in bytes): %ld\n", INFO.st_size);break;}
-                case 'h':{printf("Number of hard links: %d\n", INFO.st_nlink);break;}
-                case 'm':{print_time_last_modif(INFO);break;}
-                case 'a':{print_access(INFO);break;}
-                case 'l':{create_symlink(file, INFO);break;}
-                default: {printf("Please input accepted commands: n,d,h,m,a,l.\n");break;}
-            }
-            exit(0);
-        }
-        
+        printf("\n");
     }
-
-    int p2id;
-    if((p2id=fork())<0){
-        printf("Could not start second child process\n");
-    }
-    if(p2id==0){
-        if(check_c_extenssion(file)){
-            printf("W/E:\n");
-            execlp("c_comp.sh", file, (char*)NULL);
-            printf("\n");
-        }
-        else {
-            printf("Number of newlines in file:");    
-            execlp("wc","wc", "-l", file, (char*)NULL);
-            printf("\n");
-        }
-        exit(0);
-    }
-
-    for(int j=0; pid[j]!=NULL; j++){
-        printf("The process with PID <%d>, index <%d>, has ended with the exit code <%d>\n", pid[j], j, waitpid(pid[j]));
-    }
-
-    printf("The process with PID <%d>, has ended with the exit code <%d>\n", p2id, waitpid(p2id));
 }
 
 void handle_link(char* symlink, struct stat INFO){//file descriptor and stat info
@@ -174,34 +205,24 @@ void handle_link(char* symlink, struct stat INFO){//file descriptor and stat inf
     bool exit_flag=false;
 
     for(int i=0; commands[i]!='\0'; i++){
-        int pid;
-        if((pid=fork())<0){
-            printf("could not create child process");
-            exit(2);
+        switch (commands[i]) {
+            case 'n':{printf("Name of link: %s\n", symlink);break;}
+            case 'l':{
+                printf("deleting link\n");
+                unlink(symlink);
+                exit_flag=true;
+                break;
+                }
+            case 'd':{print_link_size(symlink);break;}
+            case 't':{printf("Size of target: %ld\n", INFO.st_size);break;}
+            case 'a':{print_access(INFO);break;}
+            default: {printf("Please input accepted commands: n,l,d,t,a.\n");break;}
         }
-        if(pid==0){
-            switch (commands[i]) {
-                case 'n':{printf("Name of link: %s\n", symlink);break;}
-                case 'l':{
-                    printf("deleting link\n");
-                    unlink(symlink);
-                    exit_flag=true;
-                    break;
-                    }
-                case 'd':{print_link_size(symlink);break;}
-                case 't':{printf("Size of target: %ld", INFO.st_size);break;}
-                case 'a':{print_access(INFO);break;}
-                default: {printf("Please input accepted commands: n,l,d,t,a.\n");break;}
-            }
-            if(exit_flag) break;
-            exit(0);
-        }
+        printf("\n");
+        if(exit_flag) break;
     }
-
-    for(int j=0; commands[j]!='\0'; j++){
-        wait();
-    }
-} 
+    
+}
 
 void handle_dir(char* dir, struct stat INFO){
     
@@ -213,46 +234,102 @@ void handle_dir(char* dir, struct stat INFO){
     scanf("-%4s", commands);
 
     for(int i=0; commands[i]!='\0'; i++){
-        int pid;
-        if((pid=fork())<0){
-            printf("could not create child process");
-            exit(2);
+        switch (commands[i]) {
+            case 'n':{printf("Name of direcory: %s\n", dir);break;}
+            case 'd':{
+                print_dir_size(dir);break;
+                }
+            case 'a':{print_access(INFO);break;}
+            case 'c':{printf("Files with .c extension: %d\n",count_c_files(dir));break;}
+            default: {printf("Please input accepted commands: n,d,a,c.\n");break;}
         }
-        if(pid==0){
-            switch (commands[i]) {
-                case 'n':{printf("Name of direcory: %s\n", dir);break;}
-                case 'd':{
-                    print_dir_size(dir);break;
-                    }
-                case 'a':{print_access(INFO);break;}
-                case 'c':{printf("Files with .c extension: %d\n",count_c_files(dir));break;}
-                default: {printf("Please input accepted commands: n,d,a,c.\n");break;}
-            }
-            exit(0);
-        }
+        printf("\n");
     }
-
-    for(int j=0; commands[j]!='\0'; j++){
-        wait();
-    }
-
 }
 
 
 int main(int argc, char* argv[]){
 
     if(argc<2) {
-        printf("Provide file or symbolic link! Exiting...");
+        printf("Provide file, directory or symbolic link! Exiting...\n");
         exit(2);
     }
+    char* input;
 
     struct stat INFO;
-    stat(argv[1], &INFO);
-    
-    if(S_ISREG(INFO.st_mode)) handle_file(argv[1], INFO);
-    else if(S_ISLNK(INFO.st_mode))handle_link(argv[1], INFO);
-    else if(S_ISDIR(INFO.st_mode))handle_dir(argv[1], INFO);
-    //else printf("Please input regular file or symbolic link\n");
+    for(int i=1; i<argc; i++){
+        input=argv[i];
 
+        int pid1;
+        if((pid1=fork())<0){
+            perror("Could not start second child process\n");
+            exit(1);
+        }
+        if(pid1==0){
+            printf("process id: %d; ", getpid());
+            printf("parent id: %d\n", getppid());
+
+            stat(input, &INFO);
+            if(S_ISREG(INFO.st_mode)){
+                handle_file(input, INFO);
+            }
+            else if(S_ISLNK(INFO.st_mode)){
+                handle_link(input, INFO);
+            }
+            else if(S_ISDIR(INFO.st_mode)){
+                handle_dir(input, INFO);
+            }
+            exit(0);
+        }
+
+        int pfd_toParent[2];
+        if(pipe(pfd_toParent)<0){
+            perror("Pipe to parent creation error\n");
+            exit(2);
+        }
+        
+        int pid2;
+        if((pid2=fork())<0){
+            printf("Could not start second child process\n");
+        }
+        if(pid2==0){
+            //printf("process id: %d; ", getpid());
+            //printf("parent id: %d\n", getppid());
+
+            manageChildStdioPipes(pfd_toParent);
+
+            stat(input, &INFO);
+            if(S_ISREG(INFO.st_mode)){
+                if(check_c_extenssion(input)) {count_we(input);}
+                else print_line_num(input);
+            }
+            else if(S_ISLNK(INFO.st_mode)){
+                change_rights(input);
+            }
+            else if(S_ISDIR(INFO.st_mode)){
+                makefile(input);
+            }
+
+            exit(0);
+        }
+
+        FILE* stream=manageParentStdioPipes(pfd_toParent);
+        if(check_c_extenssion(input)) calculate_score(stream, input);
+        else {
+            print_stream_to_stdout(stream);
+        }
+
+        close(pfd_toParent[0]);
+
+        int status;
+        int exit_pid=wait(&status);
+        if(WIFEXITED(status)) printf("The first child process with PID %d, has ended with the exit code %d\n", 
+                            exit_pid, WEXITSTATUS(status));
+
+        exit_pid=wait(&status);
+        if(WIFEXITED(status)) printf("The second child process with PID %d, has ended with the exit code %d\n", 
+                            exit_pid, WEXITSTATUS(status));
+        //printf("The second child process with PID %d, has ended with the exit code %d\n", p2id, waitpid(p2id));
+    }
     return 0;
 }
